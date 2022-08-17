@@ -1,13 +1,13 @@
 {
-  "name": "typescript-json-schema",
-  "version": "0.54.0",
+  "name": "@ali/bp-typescript-json-schema",
+  "version": "0.0.1",
   "description": "typescript-json-schema generates JSON Schema files from your Typescript sources",
   "main": "dist/typescript-json-schema.js",
   "typings": "dist/typescript-json-schema.d.ts",
   "bin": {
     "typescript-json-schema": "./bin/typescript-json-schema"
   },
-  "author": "Yousef El-Dardiry and Dominik Moritz",
+  "author": "Yousef El-Dardiry and Dominik Moritz and BuggMaker",
   "contributors": [
     {
       "name": "Yousef El-Dardiry",
@@ -30,7 +30,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git@github.com:YousefED/typescript-json-schema.git"
+    "url": "git@github.com:BuggMaker/typescript-json-schema.git"
   },
   "license": "BSD-3-Clause",
   "keywords": [
@@ -73,5 +73,9 @@
     "style": "prettier --write *.js *.ts test/*.ts",
     "dev": "tsc -w",
     "test:dev": "mocha -t 5000 --watch --require source-map-support/register dist/test"
+  },
+  "tnpm": {
+    "mode": "yarn",
+    "lockfile": "enable"
   }
 }

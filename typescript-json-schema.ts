@@ -44,11 +44,13 @@ export function getDefaultArgs(): Args {
         defaultProps: false,
         noExtraProps: false,
         propOrder: false,
-        typeOfKeyword: false,
+        // 开启函数类型返回
+        typeOfKeyword: true,
         required: false,
         strictNullChecks: false,
         esModuleInterop: false,
-        ignoreErrors: false,
+        // 默认忽略文件错误，开启诊断耗时较久z
+        ignoreErrors: true,
         out: "",
         validationKeywords: [],
         include: [],
@@ -87,6 +89,7 @@ export type Args = {
     id: string;
     defaultNumberType: "number" | "integer";
     tsNodeRegister: boolean;
+    sourceFileFilter?: (sourceFile: ts.SourceFile) => boolean;
 };
 
 export type PartialArgs = Partial<Args>;
@@ -146,6 +149,8 @@ export interface Definition extends Omit<JSONSchema7, RedefinedFields> {
     definitions?: {
         [key: string]: DefinitionOrBoolean;
     };
+    // 函数声明
+    declaration?: string;
 }
 
 export type SymbolRef = {
@@ -551,18 +556,19 @@ export class JsonSchemaGenerator {
             if (comments.length) {
                 definition.description = comments
                     .map((comment) => {
-                      const newlineNormalizedComment = comment.text.replace(/\r\n/g, "\n");
+                        const newlineNormalizedComment = comment.text.replace(/\r\n/g, "\n");
 
-                      // If a comment contains a "{@link XYZ}" inline tag that could not be
-                      // resolved by the TS checker, then this comment will contain a trailing
-                      // whitespace that we need to remove.
-                      if (comment.kind === "linkText") {
-                        return newlineNormalizedComment.trim();
-                      }
+                        // If a comment contains a "{@link XYZ}" inline tag that could not be
+                        // resolved by the TS checker, then this comment will contain a trailing
+                        // whitespace that we need to remove.
+                        if (comment.kind === "linkText") {
+                            return newlineNormalizedComment.trim();
+                        }
 
-                      return newlineNormalizedComment;
+                        return newlineNormalizedComment;
                     })
-                    .join("").trim();
+                    .join("")
+                    .trim();
             }
         }
 
@@ -1004,6 +1010,7 @@ export class JsonSchemaGenerator {
     private getClassDefinition(clazzType: ts.Type, definition: Definition): Definition {
         const node = clazzType.getSymbol()!.getDeclarations()![0];
 
+        const fullName = this.tc.typeToString(clazzType, undefined, ts.TypeFormatFlags.UseFullyQualifiedType);
         // Example: typeof globalThis may not have any declaration
         if (!node) {
             definition.type = "object";
@@ -1012,6 +1019,10 @@ export class JsonSchemaGenerator {
 
         if (this.args.typeOfKeyword && node.kind === ts.SyntaxKind.FunctionType) {
             definition.typeof = "function";
+            // 替换掉import应用路径
+            definition.declaration = fullName
+                ? fullName.replace(/| undefined/g, "").replace(/import\([a-zA-Z"\-_/]+\)\./g, "")
+                : undefined;
             return definition;
         }
 
@@ -1035,7 +1046,6 @@ export class JsonSchemaGenerator {
                 }).length > 0
             );
         });
-        const fullName = this.tc.typeToString(clazzType, undefined, ts.TypeFormatFlags.UseFullyQualifiedType);
 
         const modifierFlags = ts.getCombinedModifierFlags(node);
 
@@ -1200,7 +1210,7 @@ export class JsonSchemaGenerator {
             (<ts.ObjectType>typ).objectFlags & ts.ObjectFlags.Anonymous
         ) {
             definition.typeof = "function";
-            return definition;
+            // return definition;
         }
 
         let returnedDefinition = definition; // returned definition, may be a $ref
@@ -1606,7 +1616,12 @@ export function buildGenerator(
                     ts.forEachChild(node, (n) => inspect(n, tc));
                 }
             }
-            inspect(sourceFile, typeChecker);
+            if (
+                (typeof args.sourceFileFilter === "function" && args.sourceFileFilter(sourceFile)) ||
+                !args.sourceFileFilter
+            ) {
+                inspect(sourceFile, typeChecker);
+            }
         });
 
         return new JsonSchemaGenerator(symbols, allSymbols, userSymbols, inheritingTypes, typeChecker, settings);
